@@ -1,4 +1,5 @@
 require 'debugger'
+require 'yaml'
 
 class Board
   attr_accessor :num_board, :squares_revealed, :field
@@ -155,13 +156,23 @@ class Board
     when "reveal"
       reveal_squares(move_hash[key])
     when "quit"
-      puts "Sorry, you're stuck in this loop until you win or lose."
+      exit
     when "save"
       puts "What name do you want to save this game under?"
-      save_game(gets.chomp)
+      save_board(gets.chomp)
+    when "load"
+      puts "What game do you want to load?"
+      gets.chomp
     else
       puts "That is not a valid move. Valid moves are: "
       puts "flag, unflag, reveal, save, quit, load"
+    end
+  end
+
+  def save_board(game_name="default")
+    File.open("#{game_name}.yml", "w") do |f|
+      f.puts self.to_yaml
+      #f.write(@time_taken.to_yaml)
     end
   end
 end
@@ -173,10 +184,14 @@ class Player
 
   def ask_move
     puts "Enter x,y and your move type like so: flag 1,2"
-    user_input = gets.chomp
+    user_input = gets.chomp.split(/\W+/)
     #user_input_array = user_input.match(/^(\d),(\d)\s+(\w+)/)
-    user_input_array = user_input.match(/^(\w+)\s*(\d*),\s*(\d*)/)
-    move, x, y = $1, $2, $3
+    #inputs = user_input.match(/^(\w+)\s*(\d*),?\s?(\d*)/)
+
+    move = user_input[0]
+    x = user_input[1] || "1"
+    y = user_input[2] || "1"
+
     {move => translate(x,y)}
   end
 
@@ -187,32 +202,59 @@ end
 
 
 class Game
+  attr_accessor :board
+
   def initialize(board, player)
     @board = board
     @player = player
     @board.make_num_board
     @start_time = Time.now
     @end_time = 0
+    @time_taken = 0
   end
 
   def play
     until @board.over?
       @board.print_board(@board.field)
-      @board.make_move(@player.ask_move)
+      command = @player.ask_move
+      if command.keys.first == "load"
+        load_game(@board.make_move(command))
+      else
+        @board.make_move(command)
+      end
     end
+
+    game_over
+  end
+
+  def game_over
     @board.reveal_bombs
     @board.print_board(@board.num_board)
     puts @board.win? ? "You win!" : "You lose!"
     @end_time = Time.now
-    time_taken = @end_time - @start_time
-    puts "You took #{time_taken.floor} seconds"
+    @time_taken = @end_time - @start_time
+    puts "You took #{@time_taken.floor} seconds"
+    set_high_scores(@time_taken)
   end
 
-  def save_game(game_name)
-    File.open("./#{game_name}.txt", "a") do |f|
-      f.puts @board.field
-      f.puts "---"
-      f.puts @board.num_board
+  def set_high_scores(time_taken)
+    high_scores = File.readlines("HighScores.txt")
+    regex = /\d+\.?\d*/
+    if high_scores.first.match(regex).first.to_f > time_taken
+      puts "A new high score! What's your name?"
+      name = gets.chomp
+      high_scores.unshift("#{name}: #{time_taken} seconds")
+      File.open("HighScores.txt", 'w') do |f|
+        high_scores.each { |score| puts score }
+      end
+    end
+  end
+
+  def load_game(game_name="default")
+    begin
+      @board = YAML::load(File.open("#{game_name}.yml"))
+    rescue ArgumentError => e
+      puts "Could not parse YAML: #{e.message}"
     end
   end
 end
@@ -220,7 +262,7 @@ end
 class Array
   def deep_dup
     # Argh! Mario and Kriti beat me with a one line version?? Must
-    # have used `inject`...
+    # have used `inject`...<<<using Ned's solution>>>
     new_array = []
     self.each do |el|
       if el.is_a?(Array)
