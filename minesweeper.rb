@@ -154,9 +154,14 @@ class Board
       delete_flag(move_hash[key])
     when "reveal"
       reveal_squares(move_hash[key])
+    when "quit"
+      puts "Sorry, you're stuck in this loop until you win or lose."
+    when "save"
+      puts "What name do you want to save this game under?"
+      save_game(gets.chomp)
     else
       puts "That is not a valid move. Valid moves are: "
-      puts "flag, unflag, reveal"
+      puts "flag, unflag, reveal, save, quit, load"
     end
   end
 end
@@ -167,10 +172,11 @@ class Player
   end
 
   def ask_move
-    puts "Enter x,y and your move type like so: 1,2 flag"
+    puts "Enter x,y and your move type like so: flag 1,2"
     user_input = gets.chomp
-    user_input_array = user_input.match(/^(\d),(\d)\s+(\w+)/)
-    x, y, move = $1, $2, $3
+    #user_input_array = user_input.match(/^(\d),(\d)\s+(\w+)/)
+    user_input_array = user_input.match(/^(\w+)\s*(\d*),\s*(\d*)/)
+    move, x, y = $1, $2, $3
     {move => translate(x,y)}
   end
 
@@ -228,5 +234,5 @@ class Array
   end
 end
 
-# g = Game.new(Board.new(9,10), Player.new)
-# g.play
+g = Game.new(Board.new(9,10), Player.new)
+g.play
